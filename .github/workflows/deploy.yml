@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   deploy:
@@ -26,9 +29,8 @@ jobs:
             --exclude '.git' \
             --exclude '.github' \
             --exclude 'README.md' \
-            --exclude 'nginx-logs.conf' \
-            ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/shinobi/storytime/logging/
+            ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/${{ secrets.SSH_USER }}/storytime/logging/
 
       - name: Set permissions
         run: |
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "chmod +x /home/shinobi/storytime/logging/logs.py"
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "chmod +x /home/${{ secrets.SSH_USER }}/storytime/logging/logs.py"

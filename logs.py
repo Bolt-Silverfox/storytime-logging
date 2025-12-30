@@ -10,6 +10,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+# PM2 logs location - update this to your actual user
+PM2_LOG_DIR = '/home/ubuntu/.pm2/logs'
+
 # Define allowed log paths for security
 ALLOWED_LOGS = {
     'nginx': {
@@ -17,8 +20,8 @@ ALLOWED_LOGS = {
         'error': '/var/log/nginx/error.log',
     },
     'pm2': {
-        'out': str(Path.home() / '.pm2/logs'),  # Will list available logs
-        'error': str(Path.home() / '.pm2/logs'),
+        'out': PM2_LOG_DIR,
+        'error': PM2_LOG_DIR,
     },
     'system': {
         'syslog': '/var/log/syslog',
@@ -33,7 +36,7 @@ ALLOWED_LOGS = {
 # Additional custom paths you want to allow (add your app logs here)
 CUSTOM_ALLOWED_PATHS = [
     '/var/log/',
-    str(Path.home() / '.pm2/logs/'),
+    PM2_LOG_DIR,
     # Add more allowed directories here
 ]
 
@@ -75,7 +78,7 @@ def read_log(filepath, lines=100):
 
 def list_pm2_logs(log_type):
     """List and read PM2 logs."""
-    pm2_log_dir = Path.home() / '.pm2/logs'
+    pm2_log_dir = Path(PM2_LOG_DIR)
 
     if not pm2_log_dir.exists():
         return "PM2 logs directory not found. Is PM2 installed?"

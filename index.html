@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Logs Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 0;
+            border-bottom: 1px solid #333;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            font-weight: 300;
+            color: #fff;
+        }
+
+        header p {
+            color: #888;
+            margin-top: 8px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: #252542;
+            border: none;
+            border-radius: 8px;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            background: #303055;
+            color: #fff;
+        }
+
+        .tab.active {
+            background: #4a4a8a;
+            color: #fff;
+        }
+
+        .log-section {
+            display: none;
+        }
+
+        .log-section.active {
+            display: block;
+        }
+
+        .log-card {
+            background: #252542;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .log-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            background: #303055;
+            border-bottom: 1px solid #404070;
+        }
+
+        .log-card-header h3 {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .log-path {
+            font-size: 12px;
+            color: #888;
+            font-family: monospace;
+        }
+
+        .log-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #5a5aaa;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #6a6abb;
+        }
+
+        .btn-secondary {
+            background: #404060;
+            color: #ccc;
+        }
+
+        .btn-secondary:hover {
+            background: #505080;
+        }
+
+        .log-content {
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .log-content pre {
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #ccc;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid #333;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-entry.error {
+            color: #ff6b6b;
+        }
+
+        .log-entry.warn {
+            color: #ffd93d;
+        }
+
+        .log-entry.info {
+            color: #6bcb77;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-online {
+            background: #6bcb77;
+        }
+
+        .status-offline {
+            background: #ff6b6b;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-state p {
+            margin-top: 10px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .controls label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #aaa;
+            font-size: 14px;
+        }
+
+        .controls input[type="number"] {
+            width: 80px;
+            padding: 8px;
+            border: 1px solid #404060;
+            border-radius: 6px;
+            background: #1a1a2e;
+            color: #fff;
+        }
+
+        .controls input[type="text"] {
+            padding: 8px 12px;
+            border: 1px solid #404060;
+            border-radius: 6px;
+            background: #1a1a2e;
+            color: #fff;
+            width: 200px;
+        }
+
+        .refresh-info {
+            margin-left: auto;
+            color: #666;
+            font-size: 12px;
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: #555;
+            font-size: 13px;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1a1a2e;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #404060;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #505080;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .tabs {
+                justify-content: center;
+            }
+
+            .log-card-header {
+                flex-direction: column;
+                gap: 10px;
+                align-items: flex-start;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .refresh-info {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Server Logs Viewer</h1>
+            <p>Monitor your server logs in real-time</p>
+        </header>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="nginx">Nginx</button>
+            <button class="tab" data-tab="pm2">PM2</button>
+            <button class="tab" data-tab="system">System</button>
+            <button class="tab" data-tab="auth">Auth</button>
+            <button class="tab" data-tab="custom">Custom</button>
+        </div>
+
+        <div class="controls">
+            <label>
+                Lines:
+                <input type="number" id="lineCount" value="100" min="10" max="1000">
+            </label>
+            <label>
+                Filter:
+                <input type="text" id="filterText" placeholder="Search logs...">
+            </label>
+            <button class="btn btn-primary" onclick="refreshCurrentLog()">Refresh</button>
+            <span class="refresh-info">Last updated: <span id="lastUpdate">Never</span></span>
+        </div>
+
+        <!-- Nginx Logs -->
+        <div class="log-section active" id="nginx">
+            <div class="log-card">
+                <div class="log-card-header">
+                    <div>
+                        <h3><span class="status-indicator status-online"></span>Access Log</h3>
+                        <span class="log-path">/var/log/nginx/access.log</span>
+                    </div>
+                    <div class="log-actions">
+                        <button class="btn btn-secondary" onclick="fetchLog('nginx', 'access')">Load</button>
+                        <button class="btn btn-secondary" onclick="downloadLog('nginx-access')">Download</button>
+                    </div>
+                </div>
+                <div class="log-content" id="nginx-access-content">
+                    <div class="empty-state">
+                        <p>Click "Load" to view logs</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="log-card">
+                <div class="log-card-header">
+                    <div>
+                        <h3><span class="status-indicator status-online"></span>Error Log</h3>
+                        <span class="log-path">/var/log/nginx/error.log</span>
+                    </div>
+                    <div class="log-actions">
+                        <button class="btn btn-secondary" onclick="fetchLog('nginx', 'error')">Load</button>
+                        <button class="btn btn-secondary" onclick="downloadLog('nginx-error')">Download</button>
+                    </div>
+                </div>
+                <div class="log-content" id="nginx-error-content">
+                    <div class="empty-state">
+                        <p>Click "Load" to view logs</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PM2 Logs -->
+        <div class="log-section" id="pm2">
+            <div class="log-card">
+                <div class="log-card-header">
+                    <div>
+                        <h3><span class="status-indicator status-online"></span>PM2 Out Logs</h3>
+                        <span class="log-path">~/.pm2/logs/</span>
+                    </div>
+                    <div class="log-actions">
+                        <button class="btn btn-secondary" onclick="fetchLog('pm2', 'out')">Load</button>
+                        <button class="btn btn-secondary" onclick="downloadLog('pm2-out')">Download</button>
+                    </div>
+                </div>
+                <div class="log-content" id="pm2-out-content">
+                    <div class="empty-state">
+                        <p>Click "Load" to view logs</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="log-card">
+                <div class="log-card-header">
+                    <div>
+                        <h3><span class="status-indicator status-online"></span>PM2 Error Logs</h3>
+                        <span class="log-path">~/.pm2/logs/</span>
+                    </div>
+                    <div class="log-actions">
+                        <button class="btn btn-secondary" onclick="fetchLog('pm2', 'error')">Load</button>
+                        <button class="btn btn-secondary" onclick="downloadLog('pm2-error')">Download</button>
+                    </div>
+                </div>
+                <div class="log-content" id="pm2-error-content">
+                    <div class="empty-state">
+                        <p>Click "Load" to view logs</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Logs -->
+        <div class="log-section" id="system">
+            <div class="log-card">
+                <div class="log-card-header">
+                    <div>
+                        <h3><span class="status-indicator status-online"></span>Syslog</h3>
+                        <span class="log-path">/var/log/syslog</span>
+                    </div>
+                    <div class="log-actions">
+                        <button class="btn btn-secondary" onclick="fetchLog('system', 'syslog')">Load</button>
+                        <button class="btn btn-secondary" onclick="downloadLog('syslog')">Download</button>
+                    </div>
+                </div>
+                <div class="log-content" id="system-syslog-content">
+                    <div class="empty-state">
+                        <p>Click "Load" to view logs</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="log-card">
+                <div class="log-card-header">
+                    <div>
+                        <h3><span class="status-indicator status-online"></span>Kernel Log</h3>
+                        <span class="log-path">/var/log/kern.log</span>
+                    </div>
+                    <div class="log-actions">
+                        <button class="btn btn-secondary" onclick="fetchLog('system', 'kern')">Load</button>
+                        <button class="btn btn-secondary" onclick="downloadLog('kern')">Download</button>
+                    </div>
+                </div>
+                <div class="log-content" id="system-kern-content">
+                    <div class="empty-state">
+                        <p>Click "Load" to view logs</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Auth Logs -->
+        <div class="log-section" id="auth">
+            <div class="log-card">
+                <div class="log-card-header">
+                    <div>
+                        <h3><span class="status-indicator status-online"></span>Auth Log</h3>
+                        <span class="log-path">/var/log/auth.log</span>
+                    </div>
+                    <div class="log-actions">
+                        <button class="btn btn-secondary" onclick="fetchLog('auth', 'auth')">Load</button>
+                        <button class="btn btn-secondary" onclick="downloadLog('auth')">Download</button>
+                    </div>
+                </div>
+                <div class="log-content" id="auth-auth-content">
+                    <div class="empty-state">
+                        <p>Click "Load" to view logs</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="log-card">
+                <div class="log-card-header">
+                    <div>
+                        <h3><span class="status-indicator status-online"></span>Fail2ban Log</h3>
+                        <span class="log-path">/var/log/fail2ban.log</span>
+                    </div>
+                    <div class="log-actions">
+                        <button class="btn btn-secondary" onclick="fetchLog('auth', 'fail2ban')">Load</button>
+                        <button class="btn btn-secondary" onclick="downloadLog('fail2ban')">Download</button>
+                    </div>
+                </div>
+                <div class="log-content" id="auth-fail2ban-content">
+                    <div class="empty-state">
+                        <p>Click "Load" to view logs</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Logs -->
+        <div class="log-section" id="custom">
+            <div class="log-card">
+                <div class="log-card-header">
+                    <div>
+                        <h3>Custom Log Path</h3>
+                        <input type="text" id="customLogPath" placeholder="/path/to/your/log.log" style="margin-top: 8px; width: 300px; padding: 8px; border: 1px solid #404060; border-radius: 6px; background: #1a1a2e; color: #fff;">
+                    </div>
+                    <div class="log-actions">
+                        <button class="btn btn-primary" onclick="fetchCustomLog()">Load Custom Log</button>
+                    </div>
+                </div>
+                <div class="log-content" id="custom-log-content">
+                    <div class="empty-state">
+                        <p>Enter a log path and click "Load Custom Log"</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Server Logs Viewer</p>
+        </footer>
+    </div>
+
+    <script>
+        // CGI script endpoint
+        const API_BASE = '/cgi-bin/logs.py';
+
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.log-section').forEach(s => s.classList.remove('active'));
+
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Fetch log from server
+        async function fetchLog(category, type) {
+            const lines = document.getElementById('lineCount').value;
+            const contentEl = document.getElementById(`${category}-${type}-content`);
+
+            contentEl.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+
+            try {
+                const response = await fetch(`${API_BASE}?category=${category}&type=${type}&lines=${lines}`);
+
+                if (!response.ok) throw new Error('Failed to fetch logs');
+
+                const data = await response.text();
+                displayLog(contentEl, data);
+                updateLastRefresh();
+            } catch (error) {
+                contentEl.innerHTML = `
+                    <div class="empty-state">
+                        <p style="color: #ff6b6b;">Error loading logs: ${error.message}</p>
+                        <p style="margin-top: 10px; font-size: 12px;">
+                            Make sure your backend API is configured at: ${API_BASE}
+                        </p>
+                    </div>
+                `;
+            }
+        }
+
+        // Fetch custom log path
+        async function fetchCustomLog() {
+            const path = document.getElementById('customLogPath').value;
+            const lines = document.getElementById('lineCount').value;
+            const contentEl = document.getElementById('custom-log-content');
+
+            if (!path) {
+                alert('Please enter a log path');
+                return;
+            }
+
+            contentEl.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+
+            try {
+                const response = await fetch(`${API_BASE}?path=${encodeURIComponent(path)}&lines=${lines}`);
+
+                if (!response.ok) throw new Error('Failed to fetch logs');
+
+                const data = await response.text();
+                displayLog(contentEl, data);
+                updateLastRefresh();
+            } catch (error) {
+                contentEl.innerHTML = `
+                    <div class="empty-state">
+                        <p style="color: #ff6b6b;">Error: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Display log content with syntax highlighting
+        function displayLog(element, content) {
+            const filter = document.getElementById('filterText').value.toLowerCase();
+            const lines = content.split('\n');
+
+            let html = '<pre>';
+            lines.forEach(line => {
+                if (filter && !line.toLowerCase().includes(filter)) return;
+
+                let className = '';
+                if (line.toLowerCase().includes('error') || line.toLowerCase().includes('fail')) {
+                    className = 'error';
+                } else if (line.toLowerCase().includes('warn')) {
+                    className = 'warn';
+                } else if (line.toLowerCase().includes('info') || line.toLowerCase().includes('success')) {
+                    className = 'info';
+                }
+
+                html += `<div class="log-entry ${className}">${escapeHtml(line)}</div>`;
+            });
+            html += '</pre>';
+
+            element.innerHTML = html;
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Update last refresh timestamp
+        function updateLastRefresh() {
+            const now = new Date();
+            document.getElementById('lastUpdate').textContent = now.toLocaleTimeString();
+        }
+
+        // Refresh current active log
+        function refreshCurrentLog() {
+            const activeSection = document.querySelector('.log-section.active');
+            const loadButtons = activeSection.querySelectorAll('.btn-secondary');
+            loadButtons.forEach(btn => {
+                if (btn.textContent === 'Load') btn.click();
+            });
+        }
+
+        // Download log (placeholder - needs backend implementation)
+        function downloadLog(logName) {
+            alert(`Download functionality requires backend implementation.\nLog: ${logName}`);
+        }
+
+        // Filter logs on input change
+        document.getElementById('filterText').addEventListener('input', () => {
+            const activeSection = document.querySelector('.log-section.active');
+            const contentDivs = activeSection.querySelectorAll('.log-content pre');
+            // Re-filter would require storing original content - simplified for now
+        });
+    </script>
+</body>
+</html>

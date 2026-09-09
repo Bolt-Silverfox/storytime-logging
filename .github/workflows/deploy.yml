@@ -1,16 +1,37 @@
 name: Deploy to Server
 
+# Deploys ONLY on a push to main.
+#
+# This workflow consumes deployment secrets (SSH private key, host, user) and
+# rsyncs the checked-out tree to the live server. It must therefore never run
+# for code that has not been merged: a `pull_request` trigger on a same-repo
+# branch hands repository secrets to arbitrary PR code, and would also ship that
+# PR's files to the production box.
 on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
+
+# One deploy at a time per ref. A deploy is an `rsync --delete` against a live
+# host followed by a remote chmod, so two overlapping runs could interleave and
+# leave the server in a mixed state. Do NOT cancel in progress — a half-finished
+# rsync is worse than a queued one, so let a running deploy complete.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Least privilege: this job only needs to read the repo in order to ship it.
+    # It writes nothing back to GitHub (no releases, no comments, no packages).
+    permissions:
+      contents: read
+    # Defence in depth: the trigger above already restricts this to main, but the
+    # guard keeps the precondition local to the job, so adding another trigger
+    # later (workflow_dispatch, schedule, a second branch) cannot silently deploy
+    # an arbitrary ref to the live server.
+    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout code
